@@ -4,99 +4,131 @@
   <meta charset="UTF-8">
   <title>Demon Game</title>
   <style>
-    canvas {
-      border: 1px solid black;
-    }
+    canvas { border: 1px solid black; }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <script>
-    // Get the canvas element
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-
-    // Set the canvas dimensions
     canvas.width = 800;
     canvas.height = 600;
 
-    // Define the player and enemy objects
     const player = {
       x: canvas.width / 2,
-      y: canvas.height / 2,
-      width: 50,
-      height: 50,
-      speed: 5
+      y: canvas.height - 50,
+      width: 30,
+      height: 30,
+      speed: 5,
+      isMoving: false,
+      direction: 0
     };
 
     const enemy = {
       x: canvas.width / 2,
-      y: canvas.height / 2,
-      width: 50,
-      height: 50,
-      speed: 10,
-      fireballSpeed: 5,
-      fireballInterval: 1000 // milliseconds
+      y: 50,
+      width: 40,
+      height: 40,
+      speed: 6,
+      verticalSpeed: 15,
+      isJumping: false
     };
 
-    // Define the fireball object
-    const fireball = {
-      x: enemy.x,
-      y: enemy.y,
+    const weapon = {
+      x: 0,
+      y: 0,
       width: 10,
       height: 10,
-      speed: enemy.fireballSpeed
+      speed: 10,
+      active: false
     };
 
-    // Main game loop
     function update() {
-      // Move the enemy
-      enemy.x += enemy.speed;
-      if (enemy.x + enemy.width > canvas.width || enemy.x < 0) {
-        enemy.speed = -enemy.speed;
-      }
-
-      // Move the fireball
-      fireball.x += fireball.speed;
-      if (fireball.x + fireball.width > canvas.width || fireball.x < 0) {
-        fireball.speed = -fireball.speed;
-      }
-
-      // Check for collision with the player
-      if (checkCollision(player, enemy)) {
-        // Game over
-        console.log('Game Over');
-      }
-
-      // Check for collision with the fireball
-      if (checkCollision(player, fireball)) {
-        // Game over
-        console.log('Game Over');
-      }
-
-      // Draw everything
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Move player
+      if (player.isMoving) {
+        player.x += player.speed * player.direction;
+        player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+      }
+
+      // Move enemy
+      if (!enemy.isJumping) {
+        if (player.isMoving) {
+          // Chase player
+          enemy.x += (player.x > enemy.x) ? enemy.speed : -enemy.speed;
+        } else {
+          // Move randomly
+          enemy.x += enemy.speed * (Math.random() > 0.5 ? 1 : -1);
+        }
+        enemy.x = Math.max(0, Math.min(canvas.width - enemy.width, enemy.x));
+      } else {
+        enemy.y -= enemy.verticalSpeed;
+        if (enemy.y <= 0) {
+          enemy.isJumping = false;
+          enemy.y = 0;
+        }
+      }
+
+      // Move weapon
+      if (weapon.active) {
+        weapon.y -= weapon.speed;
+        if (weapon.y + weapon.height < 0) {
+          weapon.active = false;
+        }
+
+        // Enemy dodging
+        if (Math.abs(weapon.x - enemy.x) < 50 && !enemy.isJumping) {
+          enemy.isJumping = true;
+        }
+      }
+
+      // Draw
       ctx.fillStyle = 'red';
       ctx.fillRect(player.x, player.y, player.width, player.height);
+
       ctx.fillStyle = 'white';
       ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      ctx.fillStyle = 'orange';
-      ctx.fillRect(fireball.x, fireball.y, fireball.width, fireball.height);
 
-      // Update the game state
+      if (weapon.active) {
+        ctx.fillStyle = 'blue';
+        ctx.fillRect(weapon.x, weapon.y, weapon.width, weapon.height);
+      }
+
       requestAnimationFrame(update);
     }
 
-    // Check for collision between two objects
-    function checkCollision(obj1, obj2) {
-      if (obj1.x + obj1.width > obj2.x && obj1.x < obj2.x + obj2.width && 
-          obj1.y + obj1.height > obj2.y && obj1.y < obj2.y + obj2.height) {
-        return true;
+    // Player controls
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowLeft':
+          player.isMoving = true;
+          player.direction = -1;
+          break;
+        case 'ArrowRight':
+          player.isMoving = true;
+          player.direction = 1;
+          break;
+        case ' ':
+          if (!weapon.active) {
+            weapon.active = true;
+            weapon.x = player.x + player.width / 2;
+            weapon.y = player.y;
+          }
+          break;
       }
-      return false;
-    }
+    });
 
-    // Start the game
+     document.addEventListener('keyup', (e) => {
+      switch(e.key) {
+        case 'ArrowLeft':
+        case 'ArrowRight':
+          player.isMoving = false;
+          break;
+      }
+    });
+
     update();
   </script>
 </body>
