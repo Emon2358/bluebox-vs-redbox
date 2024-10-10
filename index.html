@@ -1,135 +1,119 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>Demon Game</title>
-  <style>
-    canvas { border: 1px solid black; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レッドアリーマー</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #game {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background-color: #fff;
+            overflow: hidden;
+            border: 1px solid #000;
+        }
+        .character {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: red;
+        }
+        .player {
+            background-color: blue;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 800;
-    canvas.height = 600;
+    <div id="game">
+        <div id="enemy" class="character"></div>
+        <div id="player" class="character player"></div>
+    </div>
+    <script>
+        const game = document.getElementById('game');
+        const enemy = document.getElementById('enemy');
+        const player = document.getElementById('player');
 
-    const player = {
-      x: canvas.width / 2,
-      y: canvas.height - 50,
-      width: 30,
-      height: 30,
-      speed: 5,
-      isMoving: false,
-      direction: 0
-    };
+        let enemySpeed = 5;
+        let enemyDirection = 1; // 1 for right, -1 for left
+        let enemyMoving = false;
 
-    const enemy = {
-      x: canvas.width / 2,
-      y: 50,
-      width: 40,
-      height: 40,
-      speed: 6,
-      verticalSpeed: 15,
-      isJumping: false
-    };
+        // プレイヤーの位置
+        let playerX = 375; // 中央
+        let playerY = 350; // 下部
+        player.style.left = playerX + 'px';
+        player.style.top = playerY + 'px';
 
-    const weapon = {
-      x: 0,
-      y: 0,
-      width: 10,
-      height: 10,
-      speed: 10,
-      active: false
-    };
+        // 敵の初期位置
+        enemy.style.left = '0px';
+        enemy.style.top = '200px';
 
-    function update() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function moveEnemy() {
+            if (enemyMoving) {
+                let enemyX = parseInt(enemy.style.left);
+                enemyX += enemySpeed * enemyDirection;
+                enemy.style.left = enemyX + 'px';
 
-      // Move player
-      if (player.isMoving) {
-        player.x += player.speed * player.direction;
-        player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
-      }
-
-      // Move enemy
-      if (!enemy.isJumping) {
-        if (player.isMoving) {
-          // Chase player
-          enemy.x += (player.x > enemy.x) ? enemy.speed : -enemy.speed;
-        } else {
-          // Move randomly
-          enemy.x += enemy.speed * (Math.random() > 0.5 ? 1 : -1);
-        }
-        enemy.x = Math.max(0, Math.min(canvas.width - enemy.width, enemy.x));
-      } else {
-        enemy.y -= enemy.verticalSpeed;
-        if (enemy.y <= 0) {
-          enemy.isJumping = false;
-          enemy.y = 0;
-        }
-      }
-
-      // Move weapon
-      if (weapon.active) {
-        weapon.y -= weapon.speed;
-        if (weapon.y + weapon.height < 0) {
-          weapon.active = false;
+                // 敵が画面端に到達したら方向を変える
+                if (enemyX > game.clientWidth - 50 || enemyX < 0) {
+                    enemyDirection *= -1; // 方向を反転
+                    enemyMoving = false; // 突進を終了
+                    setTimeout(() => { enemyMoving = true; }, 1000); // 1秒後に再突進
+                }
+            }
         }
 
-        // Enemy dodging
-        if (Math.abs(weapon.x - enemy.x) < 50 && !enemy.isJumping) {
-          enemy.isJumping = true;
+        function jumpEnemy() {
+            let jumpHeight = 100;
+            let enemyY = parseInt(enemy.style.top);
+            
+            // 敵がダメージを受けた場合の逆方向ジャンプ
+            enemy.style.top = (enemyY - jumpHeight) + 'px';
+            setTimeout(() => {
+                enemy.style.top = (enemyY + jumpHeight) + 'px'; // 元の位置に戻る
+            }, 500);
         }
-      }
 
-      // Draw
-      ctx.fillStyle = 'red';
-      ctx.fillRect(player.x, player.y, player.width, player.height);
+        // プレイヤーの操作
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                playerX -= 10;
+            } else if (e.key === 'ArrowRight') {
+                playerX += 10;
+            }
+            playerX = Math.max(0, Math.min(playerX, game.clientWidth - 50)); // 画面外に出ないように制限
+            player.style.left = playerX + 'px';
+        });
 
-      ctx.fillStyle = 'white';
-      ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        // 敵の突進を開始
+        setInterval(() => {
+            enemyMoving = true; // 最初に敵を動かす
+        }, 1000);
 
-      if (weapon.active) {
-        ctx.fillStyle = 'blue';
-        ctx.fillRect(weapon.x, weapon.y, weapon.width, weapon.height);
-      }
+        setInterval(moveEnemy, 100); // 毎100msごとに敵を動かす
 
-      requestAnimationFrame(update);
-    }
+        // 敵のダメージを受ける処理をトリガーするために、プレイヤーが敵に触れた場合
+        setInterval(() => {
+            const enemyRect = enemy.getBoundingClientRect();
+            const playerRect = player.getBoundingClientRect();
 
-    // Player controls
-    document.addEventListener('keydown', (e) => {
-      switch(e.key) {
-        case 'ArrowLeft':
-          player.isMoving = true;
-          player.direction = -1;
-          break;
-        case 'ArrowRight':
-          player.isMoving = true;
-          player.direction = 1;
-          break;
-        case ' ':
-          if (!weapon.active) {
-            weapon.active = true;
-            weapon.x = player.x + player.width / 2;
-            weapon.y = player.y;
-          }
-          break;
-      }
-    });
-
-     document.addEventListener('keyup', (e) => {
-      switch(e.key) {
-        case 'ArrowLeft':
-        case 'ArrowRight':
-          player.isMoving = false;
-          break;
-      }
-    });
-
-    update();
-  </script>
+            // 衝突判定
+            if (playerRect.left < enemyRect.right &&
+                playerRect.right > enemyRect.left &&
+                playerRect.top < enemyRect.bottom &&
+                playerRect.bottom > enemyRect.top) {
+                jumpEnemy(); // 敵がダメージを受けたときのジャンプ
+            }
+        }, 100);
+    </script>
 </body>
 </html>
+
