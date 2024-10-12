@@ -3,10 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ピクセルアートペンギンの2Dプラットフォーマー</title>
+    <title>ペンギンVS目玉ボス 2Dプラットフォーマー</title>
     <style>
         #gameCanvas {
             border: 1px solid black;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
         }
     </style>
 </head>
@@ -15,7 +23,8 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        
+
+        // プレイヤーの設定
         const player = {
             x: 50,
             y: 200,
@@ -25,17 +34,35 @@
             jumpPower: 10,
             velocityY: 0,
             isJumping: false,
-            direction: 1 // 1 for right, -1 for left
+            direction: 1,
+            isDead: false
         };
 
+        // ボスの設定
+        const boss = {
+            x: 400,
+            y: 100,
+            radius: 30,
+            speed: 3,
+            health: 100,
+            fireballCooldown: 1000,
+            lastFireballTime: 0,
+            diveCooldown: 5000,
+            lastDiveTime: 0,
+            isDiving: false,
+            diveSpeed: 8
+        };
+
+        // その他の設定
         const bullets = [];
+        const fireballs = [];
         const bulletSpeed = 10;
-        const bulletCooldown = 500; // ミリ秒
+        const bulletCooldown = 500;
         let lastBulletTime = 0;
         const gravity = 0.5;
-        let gamepad = null;
         const keys = {};
 
+        // プレイヤーの描画
         function drawPixel(x, y, color) {
             ctx.fillStyle = color;
             ctx.fillRect(x, y, 1, 1);
@@ -75,11 +102,45 @@
                 }
             }
 
-            // Draw gun
+            // 銃の描画
             ctx.fillStyle = 'gray';
             ctx.fillRect(x + gunOffsetX, y + gunOffsetY, 12 * (direction === 1 ? 1 : -1), 4);
         }
 
+        // ボスの描画
+        function drawBoss() {
+            ctx.beginPath();
+            ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            const irisRadius = boss.radius * 0.6;
+            const irisX = boss.x + (player.x - boss.x) * 0.2;
+            const irisY = boss.y + (player.y - boss.y) * 0.2;
+            ctx.beginPath();
+            ctx.arc(irisX, irisY, irisRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+
+            const pupilRadius = irisRadius * 0.4;
+            const pupilX = irisX + (player.x - boss.x) * 0.1;
+            const pupilY = irisY + (player.y - boss.y) * 0.1;
+            ctx.beginPath();
+            ctx.arc(pupilX, pupilY, pupilRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'black';
+            ctx.fill();
+
+            // ヘルスバーの描画
+            ctx.fillStyle = 'red';
+            ctx.fillRect(boss.x - boss.radius, boss.y - boss.radius - 10, boss.radius * 2, 5);
+            ctx.fillStyle = 'green';
+            ctx.fillRect(boss.x - boss.radius, boss.y - boss.radius - 10, (boss.radius * 2) * (boss.health / 100), 5);
+        }
+
+        // 弾丸の描画
         function drawBullet(x, y) {
             ctx.fillStyle = 'yellow';
             ctx.beginPath();
@@ -87,6 +148,15 @@
             ctx.fill();
         }
 
+        // 火の玉の描画
+        function drawFireball(x, y) {
+            ctx.fillStyle = 'orange';
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 弾を撃つ処理
         function shootBullet() {
             const currentTime = Date.now();
             if (currentTime - lastBulletTime > bulletCooldown) {
@@ -97,94 +167,156 @@
             }
         }
 
+        // ボスの火の玉を撃つ処理
+        function bossShootFireball() {
+            const currentTime = Date.now();
+            if (currentTime - boss.lastFireballTime > boss.fireballCooldown) {
+                const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
+                fireballs.push({
+                    x: boss.x,
+                    y: boss.y,
+                    velocityX: Math.cos(angle) * 5,
+                    velocityY: Math.sin(angle) * 5
+                });
+                boss.lastFireballTime = currentTime;
+            }
+        }
+
+        // 入力処理
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // 更新処理
         function update() {
-            // コントローラーの入力を取得
-            const gamepads = navigator.getGamepads();
-            gamepad = gamepads[0];
-
-            if (gamepad) {
-                if (gamepad.buttons[14].pressed) {
-                    player.x -= player.speed;
-                    player.direction = -1;
-                }
-                if (gamepad.buttons[15].pressed) {
-                    player.x += player.speed;
-                    player.direction = 1;
-                }
-                if (gamepad.buttons[0].pressed && !player.isJumping) {
-                    player.velocityY = -player.jumpPower;
-                    player.isJumping = true;
-                }
-                if (gamepad.buttons[2].pressed) {
-                    shootBullet();
-                }
-            }
-
-            // キーボード入力の処理
-            if (keys['ArrowLeft']) {
-                player.x -= player.speed;
-                player.direction = -1;
-            }
             if (keys['ArrowRight']) {
                 player.x += player.speed;
                 player.direction = 1;
             }
-            if (keys['ArrowUp'] && !player.isJumping) {
+            if (keys['ArrowLeft']) {
+                player.x -= player.speed;
+                player.direction = -1;
+            }
+            if (keys['Space'] && !player.isJumping) {
                 player.velocityY = -player.jumpPower;
                 player.isJumping = true;
             }
-            if (keys['Enter']) {
+            if (keys['z'] || keys['Z']) {
                 shootBullet();
             }
 
             // 重力の適用
             player.velocityY += gravity;
             player.y += player.velocityY;
-
-            // 地面との衝突判定
-            if (player.y + player.height > canvas.height) {
-                player.y = canvas.height - player.height;
-                player.velocityY = 0;
+            if (player.y > 200) {
+                player.y = 200;
                 player.isJumping = false;
             }
 
-            // 画面端での処理
-            if (player.x < 0) player.x = 0;
-            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            // 弾の移動
+            bullets.forEach((bullet, index) => {
+                bullet.x += bulletSpeed * bullet.direction;
+                if (bullet.x > canvas.width || bullet.x < 0) {
+                    bullets.splice(index, 1); // 画面外に出たら弾を削除
+                }
+            });
 
-            // 弾の更新
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                bullets[i].x += bulletSpeed * bullets[i].direction;
-                if (bullets[i].x > canvas.width || bullets[i].x < 0) {
-                    bullets.splice(i, 1);
+            // ボスの火の玉の移動
+            fireballs.forEach((fireball, index) => {
+                fireball.x += fireball.velocityX;
+                fireball.y += fireball.velocityY;
+
+                // 火の玉がプレイヤーに当たるかチェック
+                if (fireball.x > player.x && fireball.x < player.x + player.width &&
+                    fireball.y > player.y && fireball.y < player.y + player.height) {
+                    player.isDead = true;
+                }
+
+                if (fireball.x > canvas.width || fireball.x < 0 || fireball.y > canvas.height || fireball.y < 0) {
+                    fireballs.splice(index, 1); // 画面外に出たら火の玉を削除
+                }
+            });
+
+            // 弾がボスに当たったかチェック
+            bullets.forEach((bullet, index) => {
+                const dist = Math.sqrt((bullet.x - boss.x) ** 2 + (bullet.y - boss.y) ** 2);
+                if (dist < boss.radius) {
+                    boss.health -= 10;
+                    bullets.splice(index, 1); // 当たったら弾を削除
+                }
+            });
+
+            // ボスがプレイヤーに突進する処理
+            const currentTime = Date.now();
+            if (currentTime - boss.lastDiveTime > boss.diveCooldown) {
+                boss.isDiving = true;
+                boss.lastDiveTime = currentTime;
+            }
+
+            if (boss.isDiving) {
+                boss.y += boss.diveSpeed;
+                if (boss.y > canvas.height - boss.radius || boss.y < boss.radius) {
+                    boss.diveSpeed *= -1; // 上下反転
+                }
+                if (Math.abs(boss.y - player.y) < 5) {
+                    player.isDead = true; // ボスがプレイヤーに衝突
                 }
             }
+
+            // ボスが倒されたか
+            if (boss.health <= 0) {
+                alert('勝利！ボスを倒しました！');
+                resetGame();
+            }
+
+            // プレイヤーが死亡したか
+            if (player.isDead) {
+                alert('ゲームオーバー');
+                resetGame();
+            }
+
+            bossShootFireball();
         }
 
-        function gameLoop() {
+        // 描画処理
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            update();
             drawPenguin(player.x, player.y, player.direction);
+            drawBoss();
+
             bullets.forEach(bullet => drawBullet(bullet.x, bullet.y));
+            fireballs.forEach(fireball => drawFireball(fireball.x, fireball.y));
+        }
+
+        // ゲームのリセット
+        function resetGame() {
+            player.x = 50;
+            player.y = 200;
+            player.isDead = false;
+            player.velocityY = 0;
+
+            boss.x = 400;
+            boss.y = 100;
+            boss.health = 100;
+            boss.isDiving = false;
+
+            bullets.length = 0;
+            fireballs.length = 0;
+        }
+
+        // メインループ
+        function gameLoop() {
+            update();
+            draw();
             requestAnimationFrame(gameLoop);
         }
-
-        window.addEventListener("gamepadconnected", function(e) {
-            console.log("Gamepad connected:", e.gamepad.id);
-        });
-
-        document.addEventListener('keydown', (e) => {
-            keys[e.code] = true;
-            if (e.code === 'Enter') {
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            keys[e.code] = false;
-        });
 
         gameLoop();
     </script>
 </body>
 </html>
+
