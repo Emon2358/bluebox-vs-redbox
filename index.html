@@ -1,322 +1,302 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ペンギンVS目玉ボス 2Dプラットフォーマー</title>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bluebox vs redbox</title>
     <style>
-        #gameCanvas {
-            border: 1px solid black;
-        }
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        background: #87ceeb;
+        display: block;
+      }
     </style>
-</head>
-<body>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
 
-        // プレイヤーの設定
-        const player = {
-            x: 50,
-            y: 200,
-            width: 40,
-            height: 40,
-            speed: 5,
-            jumpPower: 10,
-            velocityY: 0,
-            isJumping: false,
-            direction: 1,
-            isDead: false
-        };
+      // プレイヤーの設定
+      const player = {
+        x: 50,
+        y: canvas.height - 100,
+        width: 50,
+        height: 50,
+        color: "blue",
+        speed: 5,
+        dx: 0,
+        dy: 0,
+        gravity: 0.5,
+        jumpPower: -10,
+        onGround: true,
+      };
 
-        // ボスの設定
-        const boss = {
-            x: 400,
-            y: 100,
-            radius: 30,
-            speed: 3,
-            health: 100,
-            fireballCooldown: 1000,
-            lastFireballTime: 0,
-            diveCooldown: 5000,
-            lastDiveTime: 0,
-            isDiving: false,
-            diveSpeed: 8
-        };
+      // 弾設定
+      const bullets = [];
+      const bulletSpeed = 7;
+      const bulletCooldown = 500; // ミリ秒
+      let lastBulletTime = 0;
 
-        // その他の設定
-        const bullets = [];
-        const fireballs = [];
-        const bulletSpeed = 10;
-        const bulletCooldown = 500;
-        let lastBulletTime = 0;
-        const gravity = 0.5;
-        const keys = {};
+      // ボス設定
+      const boss = {
+        x: canvas.width - 150,
+        y: 100,
+        width: 100,
+        height: 100,
+        color: "red",
+        speed: 5,
+        direction: 1,
+        fireballCooldown: 1000,
+        lastFireballTime: 0,
+        fireballs: [],
+        hitCount: 0, // ボスが弾に当たった回数
+        movePatternChangeInterval: 3000, // 移動パターンを変更する時間
+        lastMovePatternChangeTime: 0,
+      };
 
-        // プレイヤーの描画
-        function drawPixel(x, y, color) {
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y, 1, 1);
+      // プレイヤー移動
+      function movePlayer() {
+        player.x += player.dx;
+
+        // 地面にいるかチェック
+        if (player.y + player.height >= canvas.height) {
+          player.y = canvas.height - player.height;
+          player.dy = 0;
+          player.onGround = true;
+        } else {
+          player.dy += player.gravity;
+          player.onGround = false;
         }
 
-        function drawPenguin(x, y, direction) {
-            const penguinPixels = [
-                [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
-                [0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],
-                [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-                [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-                [0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0],
-                [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-                [0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],
-                [0,0,0,1,1,0,1,1,1,1,0,1,1,0,0,0],
-                [0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0],
-                [0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0],
-                [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-                [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-                [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-                [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-                [0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],
-                [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0]
-            ];
+        player.y += player.dy;
+      }
 
-            const scale = 2.5;
-            const gunOffsetX = direction === 1 ? 16 * scale : -4 * scale;
-            const gunOffsetY = 6 * scale;
-
-            for (let i = 0; i < penguinPixels.length; i++) {
-                for (let j = 0; j < penguinPixels[i].length; j++) {
-                    if (penguinPixels[i][j] === 1) {
-                        const pixelX = x + (direction === 1 ? j : 15 - j) * scale;
-                        const pixelY = y + i * scale;
-                        drawPixel(pixelX, pixelY, 'black');
-                    }
-                }
-            }
-
-            // 銃の描画
-            ctx.fillStyle = 'gray';
-            ctx.fillRect(x + gunOffsetX, y + gunOffsetY, 12 * (direction === 1 ? 1 : -1), 4);
+      // 弾を発射
+      function shootBullet() {
+        const now = Date.now();
+        if (now - lastBulletTime >= bulletCooldown) {
+          bullets.push({
+            x: player.x + player.width / 2 - 5,
+            y: player.y,
+            width: 10,
+            height: 10,
+            color: "yellow",
+            direction: "up", // 上方向に発射
+          });
+          lastBulletTime = now;
         }
+      }
 
-        // ボスの描画
-        function drawBoss() {
-            ctx.beginPath();
-            ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
-            ctx.fillStyle = 'white';
-            ctx.fill();
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            const irisRadius = boss.radius * 0.6;
-            const irisX = boss.x + (player.x - boss.x) * 0.2;
-            const irisY = boss.y + (player.y - boss.y) * 0.2;
-            ctx.beginPath();
-            ctx.arc(irisX, irisY, irisRadius, 0, Math.PI * 2);
-            ctx.fillStyle = 'blue';
-            ctx.fill();
-
-            const pupilRadius = irisRadius * 0.4;
-            const pupilX = irisX + (player.x - boss.x) * 0.1;
-            const pupilY = irisY + (player.y - boss.y) * 0.1;
-            ctx.beginPath();
-            ctx.arc(pupilX, pupilY, pupilRadius, 0, Math.PI * 2);
-            ctx.fillStyle = 'black';
-            ctx.fill();
-
-            // ヘルスバーの描画
-            ctx.fillStyle = 'red';
-            ctx.fillRect(boss.x - boss.radius, boss.y - boss.radius - 10, boss.radius * 2, 5);
-            ctx.fillStyle = 'green';
-            ctx.fillRect(boss.x - boss.radius, boss.y - boss.radius - 10, (boss.radius * 2) * (boss.health / 100), 5);
-        }
-
-        // 弾丸の描画
-        function drawBullet(x, y) {
-            ctx.fillStyle = 'yellow';
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // 火の玉の描画
-        function drawFireball(x, y) {
-            ctx.fillStyle = 'orange';
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // 弾を撃つ処理
-        function shootBullet() {
-            const currentTime = Date.now();
-            if (currentTime - lastBulletTime > bulletCooldown) {
-                const bulletX = player.direction === 1 ? player.x + player.width : player.x;
-                const bulletY = player.y + player.height / 2;
-                bullets.push({ x: bulletX, y: bulletY, direction: player.direction });
-                lastBulletTime = currentTime;
-            }
-        }
-
-        // ボスの火の玉を撃つ処理
-        function bossShootFireball() {
-            const currentTime = Date.now();
-            if (currentTime - boss.lastFireballTime > boss.fireballCooldown) {
-                const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
-                fireballs.push({
-                    x: boss.x,
-                    y: boss.y,
-                    velocityX: Math.cos(angle) * 5,
-                    velocityY: Math.sin(angle) * 5
-                });
-                boss.lastFireballTime = currentTime;
-            }
-        }
-
-        // 入力処理
-        document.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
+      // 弾の移動
+      function moveBullets() {
+        bullets.forEach((bullet, index) => {
+          if (bullet.direction === "up") {
+            bullet.y -= bulletSpeed;
+          }
+          if (bullet.y < 0) {
+            bullets.splice(index, 1); // 画面外に出た弾は削除
+          }
         });
+      }
 
-        document.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
+      // ボスの不規則な移動
+      function moveBoss() {
+        const now = Date.now();
+        if (
+          now - boss.lastMovePatternChangeTime >=
+          boss.movePatternChangeInterval
+        ) {
+          // 移動方向をランダムに変更
+          boss.direction = Math.random() < 0.5 ? -1 : 1;
+          boss.speed = Math.random() * 5 + 2; // ボスの速度をランダム化
+          boss.lastMovePatternChangeTime = now;
+        }
+
+        boss.x += boss.speed * boss.direction;
+
+        if (boss.x <= 0 || boss.x + boss.width >= canvas.width) {
+          boss.direction *= -1;
+        }
+
+        // 火の玉を放つ
+        if (now - boss.lastFireballTime >= boss.fireballCooldown) {
+          const randomSpeed = Math.random() * 3 + 2; // ランダムな速度
+          const randomBounce = Math.random() < 0.5; // 壁に一度だけ跳ね返るか
+          boss.fireballs.push({
+            x: boss.x + boss.width / 2,
+            y: boss.y + boss.height,
+            width: 10,
+            height: 10,
+            color: "orange",
+            speedX: randomSpeed * (Math.random() < 0.5 ? 1 : -1), // ランダムな方向
+            speedY: 4,
+            bounced: false, // 壁に跳ね返ったかどうか
+            randomBounce: randomBounce,
+          });
+          boss.lastFireballTime = now;
+        }
+      }
+
+      // 火の玉の移動
+      function moveFireballs() {
+        boss.fireballs.forEach((fireball, index) => {
+          fireball.x += fireball.speedX;
+          fireball.y += fireball.speedY;
+
+          // 画面端にぶつかると一度だけ跳ね返る
+          if (fireball.randomBounce && !fireball.bounced) {
+            if (
+              fireball.x <= 0 ||
+              fireball.x + fireball.width >= canvas.width
+            ) {
+              fireball.speedX *= -1;
+              fireball.bounced = true;
+            }
+          }
+
+          // 火の玉が画面外に出たら削除
+          if (fireball.y > canvas.height) {
+            boss.fireballs.splice(index, 1);
+          }
         });
+      }
 
-        // 更新処理
-        function update() {
-            if (keys['ArrowRight']) {
-                player.x += player.speed;
-                player.direction = 1;
+      // ボスに弾が当たったか確認
+      function checkBulletHit() {
+        bullets.forEach((bullet, bulletIndex) => {
+          if (
+            bullet.x < boss.x + boss.width &&
+            bullet.x + bullet.width > boss.x &&
+            bullet.y < boss.y + boss.height &&
+            bullet.y + bullet.height > boss.y
+          ) {
+            // 弾がボスに当たった
+            bullets.splice(bulletIndex, 1);
+            boss.hitCount++;
+
+            if (boss.hitCount >= 20) {
+              alert("Congratulations! You've defeated the boss!");
+              resetGame();
             }
-            if (keys['ArrowLeft']) {
-                player.x -= player.speed;
-                player.direction = -1;
-            }
-            if (keys['Space'] && !player.isJumping) {
-                player.velocityY = -player.jumpPower;
-                player.isJumping = true;
-            }
-            if (keys['z'] || keys['Z']) {
-                shootBullet();
-            }
+          }
+        });
+      }
 
-            // 重力の適用
-            player.velocityY += gravity;
-            player.y += player.velocityY;
-            if (player.y > 200) {
-                player.y = 200;
-                player.isJumping = false;
-            }
+      // プレイヤーが火の玉に当たったか確認
+      function checkFireballHit() {
+        boss.fireballs.forEach((fireball) => {
+          if (
+            fireball.x < player.x + player.width &&
+            fireball.x + fireball.width > player.x &&
+            fireball.y < player.y + player.height &&
+            fireball.y + fireball.height > player.y
+          ) {
+            alert("Game Over! You were hit by a fireball!");
+            resetGame();
+          }
+        });
+      }
 
-            // 弾の移動
-            bullets.forEach((bullet, index) => {
-                bullet.x += bulletSpeed * bullet.direction;
-                if (bullet.x > canvas.width || bullet.x < 0) {
-                    bullets.splice(index, 1); // 画面外に出たら弾を削除
-                }
-            });
-
-            // ボスの火の玉の移動
-            fireballs.forEach((fireball, index) => {
-                fireball.x += fireball.velocityX;
-                fireball.y += fireball.velocityY;
-
-                // 火の玉がプレイヤーに当たるかチェック
-                if (fireball.x > player.x && fireball.x < player.x + player.width &&
-                    fireball.y > player.y && fireball.y < player.y + player.height) {
-                    player.isDead = true;
-                }
-
-                if (fireball.x > canvas.width || fireball.x < 0 || fireball.y > canvas.height || fireball.y < 0) {
-                    fireballs.splice(index, 1); // 画面外に出たら火の玉を削除
-                }
-            });
-
-            // 弾がボスに当たったかチェック
-            bullets.forEach((bullet, index) => {
-                const dist = Math.sqrt((bullet.x - boss.x) ** 2 + (bullet.y - boss.y) ** 2);
-                if (dist < boss.radius) {
-                    boss.health -= 10;
-                    bullets.splice(index, 1); // 当たったら弾を削除
-                }
-            });
-
-            // ボスがプレイヤーに突進する処理
-            const currentTime = Date.now();
-            if (currentTime - boss.lastDiveTime > boss.diveCooldown) {
-                boss.isDiving = true;
-                boss.lastDiveTime = currentTime;
-            }
-
-            if (boss.isDiving) {
-                boss.y += boss.diveSpeed;
-                if (boss.y > canvas.height - boss.radius || boss.y < boss.radius) {
-                    boss.diveSpeed *= -1; // 上下反転
-                }
-                if (Math.abs(boss.y - player.y) < 5) {
-                    player.isDead = true; // ボスがプレイヤーに衝突
-                }
-            }
-
-            // ボスが倒されたか
-            if (boss.health <= 0) {
-                alert('勝利！ボスを倒しました！');
-                resetGame();
-            }
-
-            // プレイヤーが死亡したか
-            if (player.isDead) {
-                alert('ゲームオーバー');
-                resetGame();
-            }
-
-            bossShootFireball();
+      // 急降下攻撃の判定
+      function checkDiveAttack() {
+        if (
+          boss.y + boss.height >= player.y &&
+          boss.x < player.x + player.width &&
+          boss.x + boss.width > player.x
+        ) {
+          alert("Game Over! You were hit by the boss!");
+          resetGame();
         }
+      }
 
-        // 描画処理
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawPenguin(player.x, player.y, player.direction);
-            drawBoss();
+      // 描画
+      function drawPlayer() {
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+      }
 
-            bullets.forEach(bullet => drawBullet(bullet.x, bullet.y));
-            fireballs.forEach(fireball => drawFireball(fireball.x, fireball.y));
+      function drawBullets() {
+        bullets.forEach((bullet) => {
+          ctx.fillStyle = bullet.color;
+          ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        });
+      }
+
+      // ボスを描画し、ヒットカウントを表示
+      function drawBoss() {
+        ctx.fillStyle = boss.color;
+        ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
+
+        // ボスのヒットカウントを表示
+        ctx.font = "20px Arial";
+        ctx.fillStyle = "black";
+        ctx.fillText(`Hits: ${boss.hitCount}`, boss.x, boss.y - 10);
+      }
+
+      function drawFireballs() {
+        boss.fireballs.forEach((fireball) => {
+          ctx.fillStyle = fireball.color;
+          ctx.fillRect(fireball.x, fireball.y, fireball.width, fireball.height);
+        });
+      }
+
+      // ゲームのリセット
+      function resetGame() {
+        player.x = 50;
+        player.y = canvas.height - 100;
+        bullets.length = 0;
+        boss.fireballs.length = 0;
+        boss.hitCount = 0;
+      }
+
+      // ゲームの更新
+      function update() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        movePlayer();
+        moveBullets();
+        moveBoss();
+        moveFireballs();
+        checkBulletHit();
+        checkFireballHit();
+        checkDiveAttack();
+
+        drawPlayer();
+        drawBullets();
+        drawBoss();
+        drawFireballs();
+
+        requestAnimationFrame(update);
+      }
+
+      // キー操作
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight") {
+          player.dx = player.speed;
+        } else if (e.key === "ArrowLeft") {
+          player.dx = -player.speed;
+        } else if (e.key === " " && player.onGround) {
+          player.dy = player.jumpPower;
+        } else if (e.key === "f") {
+          shootBullet();
         }
+      });
 
-        // ゲームのリセット
-        function resetGame() {
-            player.x = 50;
-            player.y = 200;
-            player.isDead = false;
-            player.velocityY = 0;
-
-            boss.x = 400;
-            boss.y = 100;
-            boss.health = 100;
-            boss.isDiving = false;
-
-            bullets.length = 0;
-            fireballs.length = 0;
+      document.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+          player.dx = 0;
         }
+      });
 
-        // メインループ
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        gameLoop();
+      update();
     </script>
-</body>
+  </body>
 </html>
-
