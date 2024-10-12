@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カスタムキャラクターの2Dプラットフォーマー</title>
+    <title>PS3コントローラー対応2Dプラットフォーマー</title>
     <style>
         #gameCanvas {
             border: 1px solid black;
@@ -24,80 +24,92 @@
             speed: 5,
             jumpPower: 10,
             velocityY: 0,
-            jumpCount: 0,
-            maxJumps: 2,
             isJumping: false,
-            isFastFalling: false,
             image: new Image()
         };
-
         player.image.src = 'https://github.com/user-attachments/assets/ca0f8215-2a33-4243-b992-d96d6e96c5dd';
 
+        const bullets = [];
+        const bulletSpeed = 10;
+        const bulletCooldown = 500; // ミリ秒
+        let lastBulletTime = 0;
+
         const gravity = 0.5;
-        const keys = {};
+        let gamepad = null;
 
         function drawPlayer() {
             ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
         }
 
+        function drawBullets() {
+            ctx.fillStyle = 'red';
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, 10, 5);
+            });
+        }
+
         function update() {
-            // 左右移動
-            if (keys['ArrowLeft']) player.x -= player.speed;
-            if (keys['ArrowRight']) player.x += player.speed;
+            // コントローラーの入力を取得
+            const gamepads = navigator.getGamepads();
+            gamepad = gamepads[0]; // 最初に接続されたゲームパッドを使用
 
-            // ジャンプ
-            if (keys['ArrowUp'] && player.jumpCount < player.maxJumps) {
-                player.velocityY = -player.jumpPower;
-                player.jumpCount++;
-                player.isJumping = true;
+            if (gamepad) {
+                // 左右移動（十字キー）
+                if (gamepad.buttons[14].pressed) player.x -= player.speed;
+                if (gamepad.buttons[15].pressed) player.x += player.speed;
+
+                // ジャンプ（Aボタン）
+                if (gamepad.buttons[0].pressed && !player.isJumping) {
+                    player.velocityY = -player.jumpPower;
+                    player.isJumping = true;
+                }
+
+                // 弾の発射（Xボタン）
+                if (gamepad.buttons[2].pressed) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastBulletTime > bulletCooldown) {
+                        bullets.push({ x: player.x + player.width, y: player.y + player.height / 2 });
+                        lastBulletTime = currentTime;
+                    }
+                }
             }
 
-            // 高速落下
-            if (keys['ArrowDown']) {
-                player.isFastFalling = true;
-            } else {
-                player.isFastFalling = false;
-            }
-
-            // 重力と落下速度の適用
+            // 重力の適用
             player.velocityY += gravity;
-            if (player.isFastFalling) {
-                player.velocityY += gravity * 2;
-            }
             player.y += player.velocityY;
 
             // 地面との衝突判定
             if (player.y + player.height > canvas.height) {
                 player.y = canvas.height - player.height;
                 player.velocityY = 0;
-                player.jumpCount = 0;
                 player.isJumping = false;
             }
 
             // 画面端での処理
             if (player.x < 0) player.x = 0;
             if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+            // 弾の更新
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += bulletSpeed;
+                if (bullets[i].x > canvas.width) {
+                    bullets.splice(i, 1);
+                }
+            }
         }
 
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             update();
             drawPlayer();
+            drawBullets();
             requestAnimationFrame(gameLoop);
         }
 
-        document.addEventListener('keydown', (e) => {
-            keys[e.code] = true;
-            if (e.code === 'ArrowUp') {
-                e.preventDefault();
-            }
+        window.addEventListener("gamepadconnected", function(e) {
+            console.log("Gamepad connected:", e.gamepad.id);
         });
 
-        document.addEventListener('keyup', (e) => {
-            keys[e.code] = false;
-        });
-
-        // 画像が読み込まれた後にゲームループを開始
         player.image.onload = function() {
             gameLoop();
         };
