@@ -3,117 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>レッドアリーマー</title>
+    <title>カスタムキャラクターの2Dプラットフォーマー</title>
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
-        #game {
-            position: relative;
-            width: 800px;
-            height: 400px;
-            background-color: #fff;
-            overflow: hidden;
-            border: 1px solid #000;
-        }
-        .character {
-            position: absolute;
-            width: 50px;
-            height: 50px;
-            background-color: red;
-        }
-        .player {
-            background-color: blue;
+        #gameCanvas {
+            border: 1px solid black;
         }
     </style>
 </head>
 <body>
-    <div id="game">
-        <div id="enemy" class="character"></div>
-        <div id="player" class="character player"></div>
-    </div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
     <script>
-        const game = document.getElementById('game');
-        const enemy = document.getElementById('enemy');
-        const player = document.getElementById('player');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        let enemySpeed = 5;
-        let enemyDirection = 1; // 1 for right, -1 for left
-        let enemyMoving = false;
+        const player = {
+            x: 50,
+            y: 200,
+            width: 40,
+            height: 40,
+            speed: 5,
+            jumpPower: 10,
+            velocityY: 0,
+            jumpCount: 0,
+            maxJumps: 2,
+            isJumping: false,
+            isFastFalling: false,
+            image: new Image()
+        };
 
-        // プレイヤーの位置
-        let playerX = 375; // 中央
-        let playerY = 350; // 下部
-        player.style.left = playerX + 'px';
-        player.style.top = playerY + 'px';
+        player.image.src = 'https://github.com/user-attachments/assets/ca0f8215-2a33-4243-b992-d96d6e96c5dd';
 
-        // 敵の初期位置
-        enemy.style.left = '0px';
-        enemy.style.top = '200px';
+        const gravity = 0.5;
+        const keys = {};
 
-        function moveEnemy() {
-            if (enemyMoving) {
-                let enemyX = parseInt(enemy.style.left);
-                enemyX += enemySpeed * enemyDirection;
-                enemy.style.left = enemyX + 'px';
+        function drawPlayer() {
+            ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+        }
 
-                // 敵が画面端に到達したら方向を変える
-                if (enemyX > game.clientWidth - 50 || enemyX < 0) {
-                    enemyDirection *= -1; // 方向を反転
-                    enemyMoving = false; // 突進を終了
-                    setTimeout(() => { enemyMoving = true; }, 1000); // 1秒後に再突進
-                }
+        function update() {
+            // 左右移動
+            if (keys['ArrowLeft']) player.x -= player.speed;
+            if (keys['ArrowRight']) player.x += player.speed;
+
+            // ジャンプ
+            if (keys['ArrowUp'] && player.jumpCount < player.maxJumps) {
+                player.velocityY = -player.jumpPower;
+                player.jumpCount++;
+                player.isJumping = true;
             }
+
+            // 高速落下
+            if (keys['ArrowDown']) {
+                player.isFastFalling = true;
+            } else {
+                player.isFastFalling = false;
+            }
+
+            // 重力と落下速度の適用
+            player.velocityY += gravity;
+            if (player.isFastFalling) {
+                player.velocityY += gravity * 2;
+            }
+            player.y += player.velocityY;
+
+            // 地面との衝突判定
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+                player.velocityY = 0;
+                player.jumpCount = 0;
+                player.isJumping = false;
+            }
+
+            // 画面端での処理
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
         }
 
-        function jumpEnemy() {
-            let jumpHeight = 100;
-            let enemyY = parseInt(enemy.style.top);
-            
-            // 敵がダメージを受けた場合の逆方向ジャンプ
-            enemy.style.top = (enemyY - jumpHeight) + 'px';
-            setTimeout(() => {
-                enemy.style.top = (enemyY + jumpHeight) + 'px'; // 元の位置に戻る
-            }, 500);
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            update();
+            drawPlayer();
+            requestAnimationFrame(gameLoop);
         }
 
-        // プレイヤーの操作
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') {
-                playerX -= 10;
-            } else if (e.key === 'ArrowRight') {
-                playerX += 10;
+            keys[e.code] = true;
+            if (e.code === 'ArrowUp') {
+                e.preventDefault();
             }
-            playerX = Math.max(0, Math.min(playerX, game.clientWidth - 50)); // 画面外に出ないように制限
-            player.style.left = playerX + 'px';
         });
 
-        // 敵の突進を開始
-        setInterval(() => {
-            enemyMoving = true; // 最初に敵を動かす
-        }, 1000);
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
 
-        setInterval(moveEnemy, 100); // 毎100msごとに敵を動かす
-
-        // 敵のダメージを受ける処理をトリガーするために、プレイヤーが敵に触れた場合
-        setInterval(() => {
-            const enemyRect = enemy.getBoundingClientRect();
-            const playerRect = player.getBoundingClientRect();
-
-            // 衝突判定
-            if (playerRect.left < enemyRect.right &&
-                playerRect.right > enemyRect.left &&
-                playerRect.top < enemyRect.bottom &&
-                playerRect.bottom > enemyRect.top) {
-                jumpEnemy(); // 敵がダメージを受けたときのジャンプ
-            }
-        }, 100);
+        // 画像が読み込まれた後にゲームループを開始
+        player.image.onload = function() {
+            gameLoop();
+        };
     </script>
 </body>
 </html>
-
