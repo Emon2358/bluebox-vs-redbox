@@ -51,12 +51,17 @@
       let timeLeft = 60;
       let countdownInterval;
 
+      const playerImage = new Image();
+      playerImage.src = "https://prtimes.jp/i/18131/1371/resize/d18131-1371-407753-3.png";
+
+      const bossImage = new Image();
+      bossImage.src = "https://www.undergo.tokyo/wp-content/uploads/2021/08/image-460.png";
+
       const player = {
         x: 50,
         y: canvas.height - 100,
         width: 50,
         height: 50,
-        color: "blue",
         speed: 5,
         dx: 0,
         dy: 0,
@@ -70,15 +75,14 @@
         y: 100,
         width: 100,
         height: 100,
-        color: "red",
         speed: 5,
         direction: 1,
-        fireballCooldown: 500, // 発射間隔を短くする
+        fireballCooldown: 500,
         lastFireballTime: 0,
         fireballs: [],
         movePatternChangeInterval: 3000,
         lastMovePatternChangeTime: 0,
-        simultaneousFireballs: 2, // 同時に発射する火の玉の数
+        simultaneousFireballs: 2,
       };
 
       let gameStarted = false;
@@ -165,13 +169,11 @@
       }
 
       function drawPlayer() {
-        ctx.fillStyle = player.color;
-        ctx.fillRect(player.x, player.y, player.width, player.height);
+        ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
       }
 
       function drawBoss() {
-        ctx.fillStyle = boss.color;
-        ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
+        ctx.drawImage(bossImage, boss.x, boss.y, boss.width, boss.height);
       }
 
       function drawFireballs() {
@@ -253,4 +255,3 @@
     </script>
   </body>
 </html>
-
