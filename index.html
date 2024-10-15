@@ -1,257 +1,261 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>2D Game</title>
     <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        background: #87ceeb;
-      }
-      canvas {
-        display: block;
-      }
-      #title {
-        font-size: 48px;
-        margin-bottom: 20px;
-      }
-      #startButton {
-        padding: 10px 20px;
-        font-size: 24px;
-        cursor: pointer;
-      }
-      #timer {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        font-size: 24px;
-      }
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-image: url('https://media.tenor.com/796b4omB77AAAAAe/%E3%81%86%E3%82%93%E3%81%93%E3%81%A1%E3%82%83%E3%82%93-%E5%8A%A0%E8%97%A4%E7%B4%94%E4%B8%80.png');
+            background-size: cover;
+            background-position: center;
+        }
+        canvas {
+            display: block;
+        }
+        #title {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: white; /* Change the color for visibility */
+        }
+        #startButton {
+            padding: 10px 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: white; /* Change color for visibility */
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div id="title">うんこちゃん vs ハナちゃん</div>
     <button id="startButton">Start</button>
     <div id="timer" style="display: none">Time Left: 60</div>
     <canvas id="gameCanvas" style="display: none"></canvas>
 
     <script>
-      const canvas = document.getElementById("gameCanvas");
-      const ctx = canvas.getContext("2d");
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-      const timerElement = document.getElementById("timer");
-      let timeLeft = 60;
-      let countdownInterval;
+        const timerElement = document.getElementById("timer");
+        let timeLeft = 60;
+        let countdownInterval;
 
-      const playerImage = new Image();
-      playerImage.src = "https://prtimes.jp/i/18131/1371/resize/d18131-1371-407753-3.png";
+        const playerImage = new Image();
+        playerImage.src = "https://prtimes.jp/i/18131/1371/resize/d18131-1371-407753-3.png";
 
-      const bossImage = new Image();
-      bossImage.src = "https://www.undergo.tokyo/wp-content/uploads/2021/08/image-460.png";
+        const bossImage = new Image();
+        bossImage.src = "https://www.undergo.tokyo/wp-content/uploads/2021/08/image-460.png";
 
-      const player = {
-        x: 50,
-        y: canvas.height - 100,
-        width: 50,
-        height: 50,
-        speed: 5,
-        dx: 0,
-        dy: 0,
-        gravity: 0.5,
-        jumpPower: -10,
-        onGround: true,
-      };
+        const player = {
+            x: 50,
+            y: canvas.height - 100,
+            width: 50,
+            height: 50,
+            speed: 5,
+            dx: 0,
+            dy: 0,
+            gravity: 0.5,
+            jumpPower: -10,
+            onGround: true,
+        };
 
-      const boss = {
-        x: canvas.width - 150,
-        y: 100,
-        width: 100,
-        height: 100,
-        speed: 5,
-        direction: 1,
-        fireballCooldown: 500,
-        lastFireballTime: 0,
-        fireballs: [],
-        movePatternChangeInterval: 3000,
-        lastMovePatternChangeTime: 0,
-        simultaneousFireballs: 2,
-      };
+        const boss = {
+            x: canvas.width - 150,
+            y: 100,
+            width: 100,
+            height: 100,
+            speed: 5,
+            direction: 1,
+            fireballCooldown: 500,
+            lastFireballTime: 0,
+            fireballs: [],
+            movePatternChangeInterval: 3000,
+            lastMovePatternChangeTime: 0,
+            simultaneousFireballs: 2,
+        };
 
-      let gameStarted = false;
+        let gameStarted = false;
 
-      function movePlayer() {
-        player.x += player.dx;
-        if (player.x < 0) player.x = 0;
-        if (player.x + player.width > canvas.width)
-          player.x = canvas.width - player.width;
+        function movePlayer() {
+            player.x += player.dx;
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width)
+                player.x = canvas.width - player.width;
 
-        if (player.y + player.height >= canvas.height) {
-          player.y = canvas.height - player.height;
-          player.dy = 0;
-          player.onGround = true;
-        } else {
-          player.dy += player.gravity;
-          player.onGround = false;
+            if (player.y + player.height >= canvas.height) {
+                player.y = canvas.height - player.height;
+                player.dy = 0;
+                player.onGround = true;
+            } else {
+                player.dy += player.gravity;
+                player.onGround = false;
+            }
+
+            player.y += player.dy;
         }
 
-        player.y += player.dy;
-      }
+        function moveBoss() {
+            const now = Date.now();
+            if (
+                now - boss.lastMovePatternChangeTime >=
+                boss.movePatternChangeInterval
+            ) {
+                boss.direction = Math.random() < 0.5 ? -1 : 1;
+                boss.speed = Math.random() * 5 + 2;
+                boss.lastMovePatternChangeTime = now;
+            }
 
-      function moveBoss() {
-        const now = Date.now();
-        if (
-          now - boss.lastMovePatternChangeTime >=
-          boss.movePatternChangeInterval
-        ) {
-          boss.direction = Math.random() < 0.5 ? -1 : 1;
-          boss.speed = Math.random() * 5 + 2;
-          boss.lastMovePatternChangeTime = now;
+            boss.x += boss.speed * boss.direction;
+
+            if (boss.x <= 0 || boss.x + boss.width >= canvas.width) {
+                boss.direction *= -1;
+            }
+
+            if (now - boss.lastFireballTime >= boss.fireballCooldown) {
+                for (let i = 0; i < boss.simultaneousFireballs; i++) {
+                    boss.fireballs.push({
+                        x: boss.x + boss.width / 2,
+                        y: boss.y + boss.height,
+                        width: 10,
+                        height: 10,
+                        color: "orange",
+                        speedX: (Math.random() * 3 + 2) * (Math.random() < 0.5 ? 1 : -1),
+                        speedY: 4,
+                        bounced: false,
+                    });
+                }
+                boss.lastFireballTime = now;
+            }
         }
 
-        boss.x += boss.speed * boss.direction;
+        function moveFireballs() {
+            boss.fireballs.forEach((fireball) => {
+                fireball.x += fireball.speedX;
+                fireball.y += fireball.speedY;
 
-        if (boss.x <= 0 || boss.x + boss.width >= canvas.width) {
-          boss.direction *= -1;
-        }
-
-        if (now - boss.lastFireballTime >= boss.fireballCooldown) {
-          for (let i = 0; i < boss.simultaneousFireballs; i++) {
-            boss.fireballs.push({
-              x: boss.x + boss.width / 2,
-              y: boss.y + boss.height,
-              width: 10,
-              height: 10,
-              color: "orange",
-              speedX: (Math.random() * 3 + 2) * (Math.random() < 0.5 ? 1 : -1),
-              speedY: 4,
-              bounced: false,
+                if (
+                    !fireball.bounced &&
+                    (fireball.x <= 0 || fireball.x + fireball.width >= canvas.width)
+                ) {
+                    fireball.speedX *= -1;
+                    fireball.bounced = true;
+                }
             });
-          }
-          boss.lastFireballTime = now;
         }
-      }
 
-      function moveFireballs() {
-        boss.fireballs.forEach((fireball) => {
-          fireball.x += fireball.speedX;
-          fireball.y += fireball.speedY;
+        function checkCollision() {
+            boss.fireballs.forEach((fireball) => {
+                if (
+                    player.x < fireball.x + fireball.width &&
+                    player.x + player.width > fireball.x &&
+                    player.y < fireball.y + fireball.height &&
+                    player.y + player.height > fireball.y
+                ) {
+                    alert("Game Over! You were hit by a fireball.");
+                    resetGame();
+                }
+            });
+        }
 
-          if (
-            !fireball.bounced &&
-            (fireball.x <= 0 || fireball.x + fireball.width >= canvas.width)
-          ) {
-            fireball.speedX *= -1;
-            fireball.bounced = true;
-          }
+        function drawPlayer() {
+            ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+        }
+
+        function drawBoss() {
+            ctx.drawImage(bossImage, boss.x, boss.y, boss.width, boss.height);
+        }
+
+        function drawFireballs() {
+            boss.fireballs.forEach((fireball) => {
+                ctx.fillStyle = fireball.color;
+                ctx.fillRect(fireball.x, fireball.y, fireball.width, fireball.height);
+            });
+        }
+
+        function resetGame() {
+            player.x = 50;
+            player.y = canvas.height - 100;
+            player.dx = 0;
+            player.dy = 0;
+            boss.fireballs.length = 0;
+            gameStarted = false;
+            clearInterval(countdownInterval);
+            timerElement.style.display = "none";
+            document.getElementById("title").style.display = "block";
+            document.getElementById("startButton").style.display = "block";
+            canvas.style.display = "none";
+        }
+
+        function updateTimer() {
+            timerElement.textContent = `Time Left: ${timeLeft}`;
+            if (timeLeft <= 0) {
+                alert("Congratulations! You survived!");
+                resetGame();
+            }
+            timeLeft--;
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            movePlayer();
+            moveBoss();
+            moveFireballs();
+            checkCollision();
+            drawPlayer();
+            drawBoss();
+            drawFireballs();
+
+            if (gameStarted) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startGame() {
+            gameStarted = true;
+            timeLeft = 60;
+            document.getElementById("title").style.display = "none";
+            document.getElementById("startButton").style.display = "none";
+            timerElement.style.display = "block";
+            canvas.style.display = "block";
+            countdownInterval = setInterval(updateTimer, 1000);
+            gameLoop();
+        }
+
+        document.getElementById("startButton").addEventListener("click", () => {
+            startGame();
         });
-      }
 
-      function checkCollision() {
-        boss.fireballs.forEach((fireball) => {
-          if (
-            player.x < fireball.x + fireball.width &&
-            player.x + player.width > fireball.x &&
-            player.y < fireball.y + fireball.height &&
-            player.y + player.height > fireball.y
-          ) {
-            alert("Game Over! You were hit by a fireball.");
-            resetGame();
-          }
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowRight") {
+                player.dx = player.speed;
+            } else if (e.key === "ArrowLeft") {
+                player.dx = -player.speed;
+            } else if (e.key === " " && player.onGround) {
+                player.dy = player.jumpPower;
+                player.onGround = false;
+            }
         });
-      }
 
-      function drawPlayer() {
-        ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
-      }
-
-      function drawBoss() {
-        ctx.drawImage(bossImage, boss.x, boss.y, boss.width, boss.height);
-      }
-
-      function drawFireballs() {
-        boss.fireballs.forEach((fireball) => {
-          ctx.fillStyle = fireball.color;
-          ctx.fillRect(fireball.x, fireball.y, fireball.width, fireball.height);
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                player.dx = 0;
+            }
         });
-      }
-
-      function resetGame() {
-        player.x = 50;
-        player.y = canvas.height - 100;
-        player.dx = 0;
-        player.dy = 0;
-        boss.fireballs.length = 0;
-        gameStarted = false;
-        clearInterval(countdownInterval);
-        timerElement.style.display = "none";
-        document.getElementById("title").style.display = "block";
-        document.getElementById("startButton").style.display = "block";
-        canvas.style.display = "none";
-      }
-
-      function updateTimer() {
-        timerElement.textContent = `Time Left: ${timeLeft}`;
-        if (timeLeft <= 0) {
-          alert("Congratulations! You survived!");
-          resetGame();
-        }
-        timeLeft--;
-      }
-
-      function gameLoop() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        movePlayer();
-        moveBoss();
-        moveFireballs();
-        checkCollision();
-        drawPlayer();
-        drawBoss();
-        drawFireballs();
-
-        if (gameStarted) {
-          requestAnimationFrame(gameLoop);
-        }
-      }
-
-      function startGame() {
-        gameStarted = true;
-        timeLeft = 60;
-        document.getElementById("title").style.display = "none";
-        document.getElementById("startButton").style.display = "none";
-        timerElement.style.display = "block";
-        canvas.style.display = "block";
-        countdownInterval = setInterval(updateTimer, 1000);
-        gameLoop();
-      }
-
-      document.getElementById("startButton").addEventListener("click", () => {
-        startGame();
-      });
-
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowRight") {
-          player.dx = player.speed;
-        } else if (e.key === "ArrowLeft") {
-          player.dx = -player.speed;
-        } else if (e.key === " " && player.onGround) {
-          player.dy = player.jumpPower;
-          player.onGround = false;
-        }
-      });
-
-      document.addEventListener("keyup", (e) => {
-        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-          player.dx = 0;
-        }
-      });
     </script>
-  </body>
+</body>
 </html>
