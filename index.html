@@ -23,7 +23,7 @@
         #title {
             font-size: 48px;
             margin-bottom: 20px;
-            color: white; /* Change the color for visibility */
+            color: white; /* 文字色 */
         }
         #startButton {
             padding: 10px 20px;
@@ -35,7 +35,7 @@
             top: 10px;
             right: 10px;
             font-size: 24px;
-            color: white; /* Change color for visibility */
+            color: white; /* 文字色 */
         }
     </style>
 </head>
@@ -94,8 +94,7 @@
         function movePlayer() {
             player.x += player.dx;
             if (player.x < 0) player.x = 0;
-            if (player.x + player.width > canvas.width)
-                player.x = canvas.width - player.width;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
             if (player.y + player.height >= canvas.height) {
                 player.y = canvas.height - player.height;
@@ -111,10 +110,7 @@
 
         function moveBoss() {
             const now = Date.now();
-            if (
-                now - boss.lastMovePatternChangeTime >=
-                boss.movePatternChangeInterval
-            ) {
+            if (now - boss.lastMovePatternChangeTime >= boss.movePatternChangeInterval) {
                 boss.direction = Math.random() < 0.5 ? -1 : 1;
                 boss.speed = Math.random() * 5 + 2;
                 boss.lastMovePatternChangeTime = now;
@@ -148,10 +144,7 @@
                 fireball.x += fireball.speedX;
                 fireball.y += fireball.speedY;
 
-                if (
-                    !fireball.bounced &&
-                    (fireball.x <= 0 || fireball.x + fireball.width >= canvas.width)
-                ) {
+                if (!fireball.bounced && (fireball.x <= 0 || fireball.x + fireball.width >= canvas.width)) {
                     fireball.speedX *= -1;
                     fireball.bounced = true;
                 }
@@ -160,12 +153,10 @@
 
         function checkCollision() {
             boss.fireballs.forEach((fireball) => {
-                if (
-                    player.x < fireball.x + fireball.width &&
+                if (player.x < fireball.x + fireball.width &&
                     player.x + player.width > fireball.x &&
                     player.y < fireball.y + fireball.height &&
-                    player.y + player.height > fireball.y
-                ) {
+                    player.y + player.height > fireball.y) {
                     alert("Game Over! You were hit by a fireball.");
                     resetGame();
                 }
@@ -202,7 +193,7 @@
         }
 
         function updateTimer() {
-            timerElement.textContent = Time Left: ${timeLeft};
+            timerElement.textContent = `Time Left: ${timeLeft}`;
             if (timeLeft <= 0) {
                 alert("Congratulations! You survived!");
                 resetGame();
